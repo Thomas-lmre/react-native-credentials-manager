@@ -23,12 +23,52 @@ import com.facebook.react.bridge.ReadableMap
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import com.facebook.react.bridge.ReadableType
+import org.json.JSONArray
 import org.json.JSONObject
 
 class CredentialHandler(
   private val context: Context,
 ) {
   private val credentialManager = CredentialManager.create(context)
+
+  internal fun readableMapToJson(map: ReadableMap): JSONObject {
+    val json = JSONObject()
+    val iterator = map.keySetIterator()
+    while (iterator.hasNextKey()) {
+      val key = iterator.nextKey()
+      when (map.getType(key)) {
+        ReadableType.Null -> json.put(key, JSONObject.NULL)
+        ReadableType.Boolean -> json.put(key, map.getBoolean(key))
+        ReadableType.Number -> {
+          val d = map.getDouble(key)
+          if (d % 1.0 == 0.0) json.put(key, d.toLong()) else json.put(key, d)
+        }
+        ReadableType.String -> json.put(key, map.getString(key))
+        ReadableType.Map -> json.put(key, readableMapToJson(map.getMap(key)!!))
+        ReadableType.Array -> json.put(key, readableArrayToJson(map.getArray(key)!!))
+      }
+    }
+    return json
+  }
+
+  internal fun readableArrayToJson(array: ReadableArray): JSONArray {
+    val json = JSONArray()
+    for (i in 0 until array.size()) {
+      when (array.getType(i)) {
+        ReadableType.Null -> json.put(JSONObject.NULL)
+        ReadableType.Boolean -> json.put(array.getBoolean(i))
+        ReadableType.Number -> {
+          val d = array.getDouble(i)
+          if (d % 1.0 == 0.0) json.put(d.toLong()) else json.put(d)
+        }
+        ReadableType.String -> json.put(array.getString(i))
+        ReadableType.Map -> json.put(readableMapToJson(array.getMap(i)))
+        ReadableType.Array -> json.put(readableArrayToJson(array.getArray(i)))
+      }
+    }
+    return json
+  }
 
   // Helper function to get activity context
   private fun getActivityContext(): Context {
@@ -111,9 +151,9 @@ class CredentialHandler(
       when (options.getString(i)) {
         "passkeys" -> {
           if (params.hasKey("passkeys")) {
-            val jsonString = params.getMap("passkeys")?.toString()
-            jsonString?.let {
-              credentialOptions.add(GetPublicKeyCredentialOption(it, null))
+            params.getMap("passkeys")?.let {
+              val jsonString = readableMapToJson(it).toString()
+              credentialOptions.add(GetPublicKeyCredentialOption(jsonString, null))
             }
           }
         }

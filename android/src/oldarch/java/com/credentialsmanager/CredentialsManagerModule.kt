@@ -35,7 +35,7 @@ class CredentialsManagerModule(
     preferImmediatelyAvailableCredentials: Boolean,
     promise: Promise,
   ) {
-    val jsonString = requestJson.toString()
+    val jsonString = credentialHandler.readableMapToJson(requestJson).toString()
 
     coroutineScope.launch {
       try {

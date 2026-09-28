@@ -184,6 +184,33 @@ preferImmediatelyAvailableCredentials:(BOOL)preferImmediatelyAvailableCredential
                         [provider createCredentialAssertionRequestWithChallenge:challenge];
                     assertionRequest.userVerificationPreference = ASAuthorizationPublicKeyCredentialUserVerificationPreferenceRequired;
                     
+                    NSArray *allowCredentials = passkeyDict[@"allowCredentials"];
+                    if (allowCredentials && [allowCredentials isKindOfClass:[NSArray class]]) {
+                        NSMutableArray<ASAuthorizationPlatformPublicKeyCredentialDescriptor *> *descriptors = [[NSMutableArray alloc] init];
+                        for (NSDictionary *cred in allowCredentials) {
+                            NSString *credIdString = cred[@"id"];
+                            if (credIdString && [credIdString isKindOfClass:[NSString class]]) {
+                                NSString *base64 = [[credIdString stringByReplacingOccurrencesOfString:@"-" withString:@"+"]
+                                                                 stringByReplacingOccurrencesOfString:@"_" withString:@"/"];
+                                NSUInteger remainder = base64.length % 4;
+                                if (remainder != 0) {
+                                    base64 = [base64 stringByPaddingToLength:(base64.length + 4 - remainder)
+                                                                   withString:@"="
+                                                              startingAtIndex:0];
+                                }
+                                NSData *credId = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
+                                if (credId) {
+                                    ASAuthorizationPlatformPublicKeyCredentialDescriptor *descriptor =
+                                        [[ASAuthorizationPlatformPublicKeyCredentialDescriptor alloc] initWithCredentialID:credId];
+                                    [descriptors addObject:descriptor];
+                                }
+                            }
+                        }
+                        if (descriptors.count > 0) {
+                            assertionRequest.allowedCredentials = descriptors;
+                        }
+                    }
+                    
                     [authRequests addObject:assertionRequest];
                 } else {
                     RCTLogError(@"Failed to decode challenge for passkey authentication");
